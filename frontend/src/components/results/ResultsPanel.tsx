@@ -5,15 +5,43 @@ import type { UnplacedItem, PackingMetrics } from '../../types';
 interface Props {
   metrics: PackingMetrics;
   unplacedItems: UnplacedItem[];
+  selectedBilletKey: string | null;
+  hoveredBilletKey: string | null;
+  onHoverBilletId: (billetId: string | null) => void;
+  onSelectBilletId: (billetId: string | null) => void;
 }
 
-export const ResultsPanel: React.FC<Props> = ({ metrics, unplacedItems }) => {
+export const ResultsPanel: React.FC<Props> = ({
+  metrics,
+  unplacedItems,
+  selectedBilletKey,
+  hoveredBilletKey,
+  onHoverBilletId,
+  onSelectBilletId,
+}) => {
   const chartData = [
     { name: '已装载体积', value: metrics.placed_volume_m3 },
     { name: '剩余空间', value: metrics.remaining_volume_m3 },
   ];
 
   const COLORS = ['#4CAF50', '#E0E0E0'];
+
+  // Extract billet_id from selection/hover keys (format: "billetId_instanceNum")
+  const selectedBilletId = selectedBilletKey
+    ? (() => {
+        const parts = selectedBilletKey.split('_');
+        parts.pop();
+        return parts.join('_');
+      })()
+    : null;
+
+  const hoveredBilletId = hoveredBilletKey
+    ? (() => {
+        const parts = hoveredBilletKey.split('_');
+        parts.pop();
+        return parts.join('_');
+      })()
+    : null;
 
   return (
     <div className="results-panel">
@@ -80,16 +108,49 @@ export const ResultsPanel: React.FC<Props> = ({ metrics, unplacedItems }) => {
               </tr>
             </thead>
             <tbody>
-              {Object.entries(metrics.by_type).map(([id, tm]) => (
-                <tr key={id}>
-                  <td>{id}</td>
-                  <td className="num">{tm.placed}</td>
-                  <td className={`num ${tm.unplaced > 0 ? 'text-warn' : ''}`}>
-                    {tm.unplaced}
-                  </td>
-                  <td className="num">{tm.placed_volume_m3.toFixed(4)}</td>
-                </tr>
-              ))}
+              {Object.entries(metrics.by_type).map(([id, tm]) => {
+                const isSelected = selectedBilletId === id;
+                const isHovered = hoveredBilletId === id;
+                const rowClass = [
+                  isSelected ? 'row-selected' : '',
+                  isHovered && !isSelected ? 'row-highlighted' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
+
+                return (
+                  <tr
+                    key={id}
+                    className={rowClass}
+                    onMouseEnter={() => onHoverBilletId(id)}
+                    onMouseLeave={() => onHoverBilletId(null)}
+                    onClick={() =>
+                      onSelectBilletId(selectedBilletId === id ? null : id)
+                    }
+                  >
+                    <td>
+                      <span
+                        className="type-color-dot"
+                        style={{
+                          display: 'inline-block',
+                          width: 10,
+                          height: 10,
+                          borderRadius: 2,
+                          marginRight: 6,
+                          background: 'var(--accent)',
+                          verticalAlign: 'middle',
+                        }}
+                      />
+                      {id}
+                    </td>
+                    <td className="num">{tm.placed}</td>
+                    <td className={`num ${tm.unplaced > 0 ? 'text-warn' : ''}`}>
+                      {tm.unplaced}
+                    </td>
+                    <td className="num">{tm.placed_volume_m3.toFixed(4)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

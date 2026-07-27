@@ -17,6 +17,7 @@ venv/
 .coverage
 htmlcov/
 .tox/
+.vite/
 
 # Node / Frontend
 node_modules/

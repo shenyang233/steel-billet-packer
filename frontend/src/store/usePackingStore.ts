@@ -30,6 +30,10 @@ interface PackingState {
   error: string | null;
   result: PackingResultData | null;
 
+  // Selection / hover state (cross-component sync)
+  selectedBilletKey: string | null;
+  hoveredBilletKey: string | null;
+
   // Actions
   setContainer: (container: Partial<ContainerSpec>) => void;
   setContainerPreset: (preset: ContainerSpec) => void;
@@ -39,6 +43,8 @@ interface PackingState {
   setOptions: (options: Partial<PackingOptions>) => void;
   optimize: () => Promise<void>;
   clearResult: () => void;
+  setSelectedBilletKey: (key: string | null) => void;
+  setHoveredBilletKey: (key: string | null) => void;
 }
 
 export const usePackingStore = create<PackingState>((set, get) => ({
@@ -72,6 +78,10 @@ export const usePackingStore = create<PackingState>((set, get) => ({
   loading: false,
   error: null,
   result: null,
+
+  // Selection / hover state
+  selectedBilletKey: null,
+  hoveredBilletKey: null,
 
   // Actions
   setContainer: (partial) =>
@@ -142,5 +152,14 @@ export const usePackingStore = create<PackingState>((set, get) => ({
     }
   },
 
-  clearResult: () => set({ result: null, error: null }),
+  clearResult: () =>
+    set({
+      result: null,
+      error: null,
+      selectedBilletKey: null,
+      hoveredBilletKey: null,
+    }),
+
+  setSelectedBilletKey: (key) => set({ selectedBilletKey: key }),
+  setHoveredBilletKey: (key) => set({ hoveredBilletKey: key }),
 }));

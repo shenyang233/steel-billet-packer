@@ -1,200 +1,145 @@
-import React, { useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, Box, Line } from '@react-three/drei';
-import * as THREE from 'three';
+import { OrbitControls, Grid } from '@react-three/drei';
 import type { PackedItem, ContainerSpec } from '../../types';
+import { ContainerMesh } from './ContainerMesh';
+import { BilletMesh } from './BilletMesh';
+import { SceneLighting } from './SceneLighting';
+import { SceneOverlay } from './SceneOverlay';
 
-// ── Container Mesh (wireframe) ─────────────────────────────────
-
-interface ContainerMeshProps {
-  container: ContainerSpec;
-}
-
-const ContainerMesh: React.FC<ContainerMeshProps> = ({ container }) => {
-  const l = container.length;
-  const w = container.width;
-  const h = container.height;
-
-  return (
-    <group>
-      {/* Semi-transparent faces */}
-      <Box args={[w, h, l]} position={[w / 2, h / 2, l / 2]}>
-        <meshStandardMaterial
-          color="#ffffff"
-          transparent
-          opacity={0.05}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-        />
-      </Box>
-      {/* Wireframe edges */}
-      <Line
-        points={[
-          [0, 0, 0], [w, 0, 0], [w, 0, l], [0, 0, l], [0, 0, 0], // bottom
-          [0, h, 0], [w, h, 0], [w, h, l], [0, h, l], [0, h, 0], // top
-          [0, 0, 0], [0, h, 0], // verticals
-          [w, 0, 0], [w, h, 0],
-          [w, 0, l], [w, h, l],
-          [0, 0, l], [0, h, l],
-        ]}
-        color="#4a9eff"
-        lineWidth={1}
-      />
-    </group>
-  );
-};
-
-// ── Billet Mesh ────────────────────────────────────────────────
-
-interface BilletMeshProps {
-  item: PackedItem;
-  isSelected: boolean;
-  onClick: () => void;
-  onHover: (hovered: boolean) => void;
-}
-
-const BilletMesh: React.FC<BilletMeshProps> = ({ item, isSelected, onClick, onHover }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const { position, dimensions, color } = item;
-
-  // py3dbp uses (x=width, y=height, z=depth)
-  // dimensions: length (depth), width, height
-  const geomWidth = dimensions.width;
-  const geomHeight = dimensions.height;
-  const geomDepth = dimensions.length;
-
-  // Center the box on its position
-  const cx = position.x + geomWidth / 2;
-  const cy = position.y + geomHeight / 2;
-  const cz = position.z + geomDepth / 2;
-
-  const baseColor = new THREE.Color(color);
-  const emissiveColor = isSelected
-    ? new THREE.Color('#ffff00')
-    : new THREE.Color('#000000');
-
-  return (
-    <Box
-      ref={meshRef}
-      args={[geomWidth, geomHeight, geomDepth]}
-      position={[cx, cy, cz]}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        onHover(true);
-      }}
-      onPointerOut={(e) => {
-        e.stopPropagation();
-        onHover(false);
-      }}
-    >
-      <meshStandardMaterial
-        color={baseColor}
-        emissive={emissiveColor}
-        emissiveIntensity={isSelected ? 0.5 : 0}
-        metalness={0.6}
-        roughness={0.4}
-        transparent
-        opacity={0.85}
-      />
-    </Box>
-  );
-};
-
-// ── Main Scene ─────────────────────────────────────────────────
+// ── Main Scene Component ────────────────────────────────────────
 
 interface PackingSceneProps {
   container: ContainerSpec;
   packedItems: PackedItem[];
+  selectedKey: string | null;
+  hoveredKey: string | null;
+  onSelectKey: (key: string | null) => void;
+  onHoverKey: (key: string | null) => void;
 }
 
-export const PackingScene: React.FC<PackingSceneProps> = ({ container, packedItems }) => {
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [hoveredId, setHoveredId] = React.useState<string | null>(null);
+export const PackingScene: React.FC<PackingSceneProps> = ({
+  container,
+  packedItems,
+  selectedKey,
+  hoveredKey,
+  onSelectKey,
+  onHoverKey,
+}) => {
+  const [animateIn, setAnimateIn] = useState(false);
+  const prevItemsRef = useRef<PackedItem[]>([]);
+
+  // Trigger animation whenever packedItems change (new packing result)
+  useEffect(() => {
+    const prevKeys = prevItemsRef.current
+      .map((p) => `${p.billet_id}_${p.instance_id}`)
+      .sort()
+      .join(',');
+    const newKeys = packedItems
+      .map((p) => `${p.billet_id}_${p.instance_id}`)
+      .sort()
+      .join(',');
+
+    if (prevKeys !== newKeys) {
+      setAnimateIn(false);
+      // Small delay to reset positions before animating
+      const timer = setTimeout(() => setAnimateIn(true), 50);
+      prevItemsRef.current = packedItems;
+      return () => clearTimeout(timer);
+    }
+  }, [packedItems]);
 
   const maxDim = Math.max(container.length, container.width, container.height);
-  const camPos: [number, number, number] = [maxDim * 0.6, maxDim * 0.5, maxDim * 0.8];
+
+  // Camera position: ISO-style offset from the container center
+  const camPos: [number, number, number] = useMemo(
+    () => [maxDim * 0.55, maxDim * 0.45, maxDim * 0.75],
+    [maxDim],
+  );
+
+  // Find the currently hovered item for the tooltip overlay
+  const hoveredItem = useMemo(() => {
+    if (!hoveredKey) return null;
+    const [billetId, instanceStr] = (() => {
+      const parts = hoveredKey.split('_');
+      const idx = parts.pop()!;
+      return [parts.join('_'), idx];
+    })();
+    return (
+      packedItems.find(
+        (p) => p.billet_id === billetId && p.instance_id === parseInt(instanceStr),
+      ) ?? null
+    );
+  }, [hoveredKey, packedItems]);
+
+  const centerX = container.width / 2;
+  const centerZ = container.length / 2;
+  const centerY = container.height / 2;
 
   return (
     <div className="scene-container">
       <Canvas
-        camera={{ position: camPos, fov: 45, near: 10, far: 200000 }}
-        style={{ background: '#1a1a2e' }}
+        camera={{ position: camPos, fov: 45, near: 1, far: maxDim * 8 }}
+        style={{ background: 'var(--bg-secondary, #1a1a2e)' }}
+        gl={{ antialias: true, alpha: false }}
       >
-        {/* Lighting */}
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[maxDim, maxDim * 2, maxDim]} intensity={0.8} />
-        <directionalLight position={[-maxDim, maxDim, -maxDim]} intensity={0.3} />
+        {/* Lighting & Environment */}
+        <SceneLighting maxDim={maxDim} centerX={centerX} centerZ={centerZ} />
 
         {/* Grid */}
         <Grid
-          position={[container.width / 2, -0.5, container.length / 2]}
-          args={[maxDim * 1.2, maxDim * 1.2]}
-          cellSize={Math.max(container.width, container.length) / 20}
+          position={[centerX, -0.5, centerZ]}
+          args={[maxDim * 1.5, maxDim * 1.5]}
+          cellSize={Math.max(container.width, container.length) / 18}
           cellThickness={0.5}
-          cellColor="#333355"
+          cellColor="#4a5568"
           sectionSize={5}
-          fadeDistance={maxDim * 2}
+          sectionThickness={1.2}
+          sectionColor="#6b7d98"
+          fadeDistance={maxDim * 2.5}
           infiniteGrid
         />
 
-        {/* Container */}
+        {/* Container wireframe */}
         <ContainerMesh container={container} />
 
         {/* Billets */}
-        {packedItems.map((item) => {
+        {packedItems.map((item, index) => {
           const key = `${item.billet_id}_${item.instance_id}`;
           return (
             <BilletMesh
               key={key}
               item={item}
-              isSelected={selectedId === key}
-              onClick={() => setSelectedId(selectedId === key ? null : key)}
-              onHover={(hovered) => setHoveredId(hovered ? key : null)}
+              index={index}
+              isSelected={selectedKey === key}
+              isHovered={hoveredKey === key}
+              onClick={() => onSelectKey(selectedKey === key ? null : key)}
+              onHover={(hovered) => onHoverKey(hovered ? key : null)}
+              animateIn={animateIn}
+              maxDim={maxDim}
             />
           );
         })}
 
-        {/* Controls */}
+        {/* Orbit Controls */}
         <OrbitControls
-          target={[container.width / 2, container.height / 2, container.length / 2]}
+          target={[centerX, centerY, centerZ]}
           enableDamping
           dampingFactor={0.1}
+          minDistance={maxDim * 0.2}
+          maxDistance={maxDim * 4}
+          minPolarAngle={0.1}
+          maxPolarAngle={Math.PI / 2 - 0.05}
+          mouseButtons={{
+            LEFT: 0 as const,   // Rotate
+            MIDDLE: 1 as const, // Zoom
+            RIGHT: 2 as const,  // Pan
+          }}
         />
       </Canvas>
 
-      {/* Tooltip */}
-      {hoveredId && (() => {
-        const parts = hoveredId.split('_');
-        const billetId = parts.slice(0, -1).join('_');
-        const instanceId = parts[parts.length - 1];
-        const item = packedItems.find(
-          (p) => p.billet_id === billetId && p.instance_id === parseInt(instanceId)
-        );
-        if (!item) return null;
-        return (
-          <div className="tooltip">
-            <strong>{item.billet_id}</strong> #{item.instance_id}
-            <br />
-            尺寸: {item.dimensions.length}×{item.dimensions.width}×{item.dimensions.height} mm
-            <br />
-            位置: ({item.position.x.toFixed(0)}, {item.position.y.toFixed(0)}, {item.position.z.toFixed(0)})
-          </div>
-        );
-      })()}
-
-      {/* Legend */}
-      <div className="legend">
-        {Array.from(new Map(packedItems.map(p => [p.billet_id, p.color])).entries()).map(([id, color]) => (
-          <div key={id} className="legend-item">
-            <span className="legend-color" style={{ background: color }} />
-            <span>{id}</span>
-          </div>
-        ))}
-      </div>
+      {/* HTML overlay: tooltip + legend */}
+      <SceneOverlay hoveredItem={hoveredItem} packedItems={packedItems} />
     </div>
   );
 };

@@ -333,37 +333,107 @@ input[type="checkbox"] {
 }
 
 /* Tooltip */
-.tooltip {
+.scene-tooltip {
   position: absolute;
   bottom: 16px;
   left: 16px;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(10, 10, 26, 0.92);
   border: 1px solid var(--accent);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 0.8rem;
+  border-radius: 8px;
+  padding: 0;
   pointer-events: none;
   z-index: 10;
-  max-width: 280px;
+  max-width: 300px;
+  min-width: 200px;
   color: var(--text-primary);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  animation: tooltip-fade-in 0.15s ease-out;
+  transition: opacity 0.12s ease-out;
 }
 
-.tooltip strong {
-  color: var(--accent);
+@keyframes tooltip-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(74, 158, 255, 0.2);
+}
+
+.tooltip-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tooltip-header strong {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.tooltip-instance {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.tooltip-body {
+  padding: 8px 12px 10px;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 0.78rem;
+  gap: 12px;
+}
+
+.tooltip-label {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.tooltip-value {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 /* Legend */
-.legend {
+.scene-legend {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: rgba(0, 0, 0, 0.8);
-  border-radius: 6px;
-  padding: 8px 12px;
+  background: rgba(10, 10, 26, 0.88);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   z-index: 10;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  min-width: 130px;
+}
+
+.legend-title {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
 }
 
 .legend-item {
@@ -373,11 +443,26 @@ input[type="checkbox"] {
   font-size: 0.78rem;
 }
 
-.legend-color {
-  width: 14px;
-  height: 14px;
+.legend-swatch {
+  width: 12px;
+  height: 12px;
   border-radius: 3px;
   flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.legend-id {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.legend-count {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px;
+  border-radius: 3px;
 }
 
 /* ── Error banner ───────────────────────────────────────────── */
@@ -588,6 +673,25 @@ input[type="checkbox"] {
 .type-table .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.type-table tbody tr {
+  transition: background-color 0.15s ease;
+  cursor: default;
+}
+
+.type-table tbody tr:hover {
+  background: rgba(74, 158, 255, 0.08);
+}
+
+.type-table tbody tr.row-highlighted {
+  background: rgba(74, 158, 255, 0.15);
+}
+
+.type-table tbody tr.row-selected {
+  background: rgba(74, 158, 255, 0.12);
+  outline: 1px solid rgba(74, 158, 255, 0.3);
+  border-radius: 2px;
 }
 
 .text-warn {

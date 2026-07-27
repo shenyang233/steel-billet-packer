@@ -17,6 +17,8 @@ const App: React.FC = () => {
     loading,
     error,
     result,
+    selectedBilletKey,
+    hoveredBilletKey,
     setContainer,
     setContainerPreset,
     addBillet,
@@ -24,6 +26,8 @@ const App: React.FC = () => {
     removeBillet,
     setOptions,
     optimize,
+    setSelectedBilletKey,
+    setHoveredBilletKey,
   } = usePackingStore();
 
   const totalBillets = billets.reduce((sum, b) => sum + b.quantity, 0);
@@ -97,10 +101,18 @@ const App: React.FC = () => {
               <PackingScene
                 container={container}
                 packedItems={result.packed_items}
+                selectedKey={selectedBilletKey}
+                hoveredKey={hoveredBilletKey}
+                onSelectKey={setSelectedBilletKey}
+                onHoverKey={setHoveredBilletKey}
               />
               <ResultsPanel
                 metrics={result.metrics}
                 unplacedItems={result.unplaced_items}
+                selectedBilletKey={selectedBilletKey}
+                hoveredBilletKey={hoveredBilletKey}
+                onHoverBilletId={setHoveredBilletKey}
+                onSelectBilletId={setSelectedBilletKey}
               />
             </div>
           ) : (

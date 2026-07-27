@@ -33,18 +33,18 @@ class BilletSpecRequest(BaseModel):
     shape: str = Field(default="rectangular", pattern=SHAPE_PATTERN, description="截面形状")
 
     # Common dimension (used by all shapes)
-    length: float = Field(..., gt=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯长度 (mm)")
+    length: float = Field(..., ge=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯长度 (mm)")
 
     # Rectangular-specific (required when shape=rectangular, optional otherwise)
-    width: Optional[float] = Field(default=None, gt=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯宽度 (mm)")
-    height: Optional[float] = Field(default=None, gt=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯高度 (mm)")
+    width: Optional[float] = Field(default=None, ge=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯宽度 (mm)")
+    height: Optional[float] = Field(default=None, ge=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯高度 (mm)")
 
     # Cylinder / Pipe specific
-    diameter: Optional[float] = Field(default=None, gt=0, le=MAX_BILLET_DIMENSION_MM, description="外径 (mm) — 圆柱/管材")
+    diameter: Optional[float] = Field(default=None, ge=0, le=MAX_BILLET_DIMENSION_MM, description="外径 (mm) — 圆柱/管材")
     inner_diameter: Optional[float] = Field(default=None, ge=0, le=MAX_BILLET_DIMENSION_MM, description="内径 (mm) — 仅管材")
 
     # Hexagonal specific
-    side_length: Optional[float] = Field(default=None, gt=0, le=MAX_BILLET_DIMENSION_MM, description="边长 (mm) — 六角形")
+    side_length: Optional[float] = Field(default=None, ge=0, le=MAX_BILLET_DIMENSION_MM, description="边长 (mm) — 六角形")
 
     quantity: int = Field(..., gt=0, le=MAX_BILLET_TYPE_QUANTITY, description="数量")
     color: str = Field(default="#B87333", pattern=r"^#[0-9a-fA-F]{6}$", description="显示颜色 (hex)")

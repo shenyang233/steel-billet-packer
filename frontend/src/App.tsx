@@ -31,15 +31,32 @@ const App: React.FC = () => {
   } = usePackingStore();
 
   const totalBillets = billets.reduce((sum, b) => sum + b.quantity, 0);
+
+  const isBilletValid = (b: typeof billets[0]): boolean => {
+    if (!b.id || b.quantity <= 0) return false;
+    if (b.length < 0) return false;
+
+    switch (b.shape) {
+      case 'rectangular':
+        return (b.width ?? 0) >= 0 && (b.height ?? 0) >= 0;
+      case 'cylinder':
+        return (b.diameter ?? 0) >= 0;
+      case 'pipe':
+        return (b.diameter ?? 0) >= 0 && (b.innerDiameter ?? 0) >= 0 && (b.diameter ?? 0) > (b.innerDiameter ?? 0);
+      case 'hexagonal':
+        return (b.sideLength ?? 0) >= 0;
+      default:
+        return false;
+    }
+  };
+
   const canOptimize =
     !loading &&
     container.length > 0 &&
     container.width > 0 &&
     container.height > 0 &&
     totalBillets > 0 &&
-    billets.every(
-      (b) => b.id && b.length > 0 && b.width > 0 && b.height > 0 && b.quantity > 0
-    );
+    billets.every(isBilletValid);
 
   return (
     <div className="app">

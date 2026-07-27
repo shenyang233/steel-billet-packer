@@ -85,7 +85,7 @@ export const BilletForm: React.FC<Props> = ({ billets, onUpdate, onRemove, onAdd
                   type="number"
                   value={billet.length}
                   onChange={(e) => onUpdate(index, { length: parseFloat(e.target.value) || 0 })}
-                  min={1}
+                  min={0}
                   step={1}
                 />
               </div>
@@ -99,7 +99,7 @@ export const BilletForm: React.FC<Props> = ({ billets, onUpdate, onRemove, onAdd
                       type="number"
                       value={billet.width ?? 0}
                       onChange={(e) => onUpdate(index, { width: parseFloat(e.target.value) || 0 })}
-                      min={1}
+                      min={0}
                       step={1}
                     />
                   </div>
@@ -109,7 +109,7 @@ export const BilletForm: React.FC<Props> = ({ billets, onUpdate, onRemove, onAdd
                       type="number"
                       value={billet.height ?? 0}
                       onChange={(e) => onUpdate(index, { height: parseFloat(e.target.value) || 0 })}
-                      min={1}
+                      min={0}
                       step={1}
                     />
                   </div>
@@ -123,7 +123,7 @@ export const BilletForm: React.FC<Props> = ({ billets, onUpdate, onRemove, onAdd
                     type="number"
                     value={billet.diameter ?? 0}
                     onChange={(e) => onUpdate(index, { diameter: parseFloat(e.target.value) || 0 })}
-                    min={1}
+                    min={0}
                     step={1}
                   />
                 </div>
@@ -149,7 +149,7 @@ export const BilletForm: React.FC<Props> = ({ billets, onUpdate, onRemove, onAdd
                     type="number"
                     value={billet.sideLength ?? 0}
                     onChange={(e) => onUpdate(index, { sideLength: parseFloat(e.target.value) || 0 })}
-                    min={1}
+                    min={0}
                     step={1}
                   />
                 </div>

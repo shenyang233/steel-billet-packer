@@ -12,6 +12,13 @@ const easeOutBack = (t: number): number => {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 };
 
+// ── Coordinate mapping ──────────────────────────────────────────
+// py3dbp: position=(x=width, y=height, z=depth/length)
+// Three.js: X=right, Y=up, Z=forward
+// Bounding box: (width, height, length) → Three.js (x, y, z)
+// CylinderGeometry defaults along Y axis; billets run along Z (length).
+// We rotate geometries by [π/2, 0, 0] to align the cylinder axis with Z.
+
 // ── Shape-specific geometry components ──────────────────────────
 
 interface ShapeGeometryProps {
@@ -31,9 +38,9 @@ const RectangularGeometry: React.FC<ShapeGeometryProps> = ({
   materialOpacity,
 }) => {
   const { dimensions } = item;
-  const w = dimensions.width;
-  const h = dimensions.height;
-  const d = dimensions.length;
+  const w = dimensions.width;   // Three.js x
+  const h = dimensions.height;  // Three.js y
+  const d = dimensions.length;  // Three.js z
 
   return (
     <group>
@@ -57,6 +64,10 @@ const RectangularGeometry: React.FC<ShapeGeometryProps> = ({
   );
 };
 
+// Cylinder: length runs along Z axis. CylinderGeometry defaults along Y.
+// Rotate +π/2 around X to map Y→Z.
+const CYLINDER_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0];
+
 const CylinderGeometryView: React.FC<ShapeGeometryProps> = ({
   item,
   baseColor,
@@ -70,8 +81,7 @@ const CylinderGeometryView: React.FC<ShapeGeometryProps> = ({
   const radius = d / 2;
 
   return (
-    <group rotation={[0, 0, Math.PI / 2]}>
-      {/* Main cylinder body */}
+    <group rotation={CYLINDER_ROTATION}>
       <mesh>
         <cylinderGeometry args={[radius, radius, length, 48]} />
         <meshStandardMaterial
@@ -89,9 +99,17 @@ const CylinderGeometryView: React.FC<ShapeGeometryProps> = ({
       <Edges scale={1} threshold={15} color={baseColor.clone().multiplyScalar(0.35)}>
         <cylinderGeometry args={[radius, radius, length, 48, 1, true]} />
       </Edges>
-      {/* Top/bottom circle rings */}
-      <lineLoop geometry={new THREE.RingGeometry(radius * 0.98, radius, 64)} position={[0, length / 2, 0]} />
-      <lineLoop geometry={new THREE.RingGeometry(radius * 0.98, radius, 64)} position={[0, -length / 2, 0]} />
+      {/* Circle rings at each end */}
+      {[length / 2, -length / 2].map((yOff, i) => (
+        <mesh key={i} position={[0, yOff, 0]}>
+          <ringGeometry args={[radius * 0.96, radius, 64]} />
+          <meshBasicMaterial
+            color={baseColor.clone().multiplyScalar(0.4)}
+            side={THREE.DoubleSide}
+            depthTest={false}
+          />
+        </mesh>
+      ))}
     </group>
   );
 };
@@ -111,8 +129,8 @@ const PipeGeometryView: React.FC<ShapeGeometryProps> = ({
   const innerR = id / 2;
 
   return (
-    <group rotation={[0, 0, Math.PI / 2]}>
-      {/* Outer cylinder */}
+    <group rotation={CYLINDER_ROTATION}>
+      {/* Outer wall */}
       <mesh>
         <cylinderGeometry args={[outerR, outerR, length, 48, 1, true]} />
         <meshStandardMaterial
@@ -127,49 +145,41 @@ const PipeGeometryView: React.FC<ShapeGeometryProps> = ({
           side={THREE.FrontSide}
         />
       </mesh>
-      {/* Inner cylinder (hollow interior) */}
+      {/* Inner wall */}
       <mesh>
         <cylinderGeometry args={[innerR, innerR, length, 48, 1, true]} />
         <meshStandardMaterial
-          color={baseColor}
+          color={baseColor.clone().multiplyScalar(0.7)}
           metalness={0.5}
           roughness={0.6}
           side={THREE.BackSide}
         />
       </mesh>
-      {/* End faces (ring cross-sections) */}
-      <mesh position={[0, length / 2, 0]} rotation={[0, 0, 0]}>
-        <ringGeometry args={[innerR, outerR, 64]} />
-        <meshStandardMaterial
-          color={baseColor}
-          emissive={emissiveColor}
-          emissiveIntensity={emissiveIntensity}
-          metalness={0.7}
-          roughness={0.3}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <mesh position={[0, -length / 2, 0]} rotation={[0, 0, 0]}>
-        <ringGeometry args={[innerR, outerR, 64]} />
-        <meshStandardMaterial
-          color={baseColor}
-          emissive={emissiveColor}
-          emissiveIntensity={emissiveIntensity}
-          metalness={0.7}
-          roughness={0.3}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      {/* Edge lines */}
-      <lineLoop geometry={new THREE.RingGeometry(outerR * 0.98, outerR, 64)} position={[0, length / 2 + 0.1, 0]}>
-        <lineBasicMaterial color={baseColor.clone().multiplyScalar(0.35)} />
-      </lineLoop>
-      <lineLoop geometry={new THREE.RingGeometry(outerR * 0.98, outerR, 64)} position={[0, -length / 2 - 0.1, 0]}>
-        <lineBasicMaterial color={baseColor.clone().multiplyScalar(0.35)} />
-      </lineLoop>
-      <Edges scale={1} threshold={15} color={baseColor.clone().multiplyScalar(0.25)}>
-        <cylinderGeometry args={[outerR, outerR, length, 48, 1, true]} />
-      </Edges>
+      {/* Ring faces at each end */}
+      {[length / 2, -length / 2].map((yOff, i) => (
+        <mesh key={i} position={[0, yOff, 0]}>
+          <ringGeometry args={[innerR, outerR, 64]} />
+          <meshStandardMaterial
+            color={baseColor}
+            emissive={emissiveColor}
+            emissiveIntensity={emissiveIntensity * 0.5}
+            metalness={0.7}
+            roughness={0.3}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
+      {/* Outer edge rings */}
+      {[length / 2, -length / 2].map((yOff, i) => (
+        <mesh key={`oring-${i}`} position={[0, yOff, 0]}>
+          <ringGeometry args={[outerR * 0.96, outerR, 64]} />
+          <meshBasicMaterial
+            color={baseColor.clone().multiplyScalar(0.35)}
+            side={THREE.DoubleSide}
+            depthTest={false}
+          />
+        </mesh>
+      ))}
     </group>
   );
 };
@@ -184,14 +194,14 @@ const HexagonalGeometry: React.FC<ShapeGeometryProps> = ({
   const { dimensions } = item;
   const s = item.side_length || dimensions.width / 2;
   const length = dimensions.length;
-
-  // Regular hexagon circumradius
-  const circumRadius = s; // CylinderGeometry radiusRadial= segments; for 6 sides, radius is side length
+  // Regular hexagon: circumradius = side_length
+  const circumR = s;
 
   return (
-    <group rotation={[0, 0, Math.PI / 2]}>
+    <group rotation={CYLINDER_ROTATION}>
       <mesh>
-        <cylinderGeometry args={[circumRadius, circumRadius, length, 6]} />
+        {/* 6 radial segments = hexagonal prism */}
+        <cylinderGeometry args={[circumR, circumR, length, 6]} />
         <meshStandardMaterial
           color={baseColor}
           emissive={emissiveColor}
@@ -204,7 +214,7 @@ const HexagonalGeometry: React.FC<ShapeGeometryProps> = ({
         />
       </mesh>
       <Edges scale={1} threshold={15} color={baseColor.clone().multiplyScalar(0.35)}>
-        <cylinderGeometry args={[circumRadius, circumRadius, length, 6]} />
+        <cylinderGeometry args={[circumR, circumR, length, 6]} />
       </Edges>
     </group>
   );
@@ -242,14 +252,10 @@ export const BilletMesh: React.FC<BilletMeshProps> = ({
   const { position, dimensions } = item;
   const shape = item.shape || 'rectangular';
 
-  // All shapes: compute center position from bounding box
-  const geomWidth = dimensions.width;
-  const geomHeight = dimensions.height;
-  const geomDepth = dimensions.length;
-
-  const cx = position.x + geomWidth / 2;
-  const cy = position.y + geomHeight / 2;
-  const cz = position.z + geomDepth / 2;
+  // Bounding box center in Three.js world space
+  const cx = position.x + dimensions.width / 2;   // x center
+  const cy = position.y + dimensions.height / 2;  // y center
+  const cz = position.z + dimensions.length / 2;  // z center
 
   // Drop-in animation
   const startY = animateIn ? cy + maxDim * 0.3 + index * 20 : cy;

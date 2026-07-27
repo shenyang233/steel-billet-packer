@@ -348,6 +348,15 @@ input[type="checkbox"] {
   display: block;
 }
 
+/* Screenshot button (rendered inside Canvas, positioned absolute within scene-container) */
+.screenshot-btn {
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.screenshot-btn:hover {
+  background: rgba(74, 158, 255, 0.15) !important;
+  border-color: var(--accent) !important;
+}
+
 /* Tooltip */
 .scene-tooltip {
   position: absolute;

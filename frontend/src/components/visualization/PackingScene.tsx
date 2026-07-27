@@ -1,11 +1,55 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import type { PackedItem, ContainerSpec } from '../../types';
 import { ContainerMesh } from './ContainerMesh';
 import { BilletMesh } from './BilletMesh';
 import { SceneLighting } from './SceneLighting';
 import { SceneOverlay } from './SceneOverlay';
+
+// ── Screenshot button (inside Canvas context to access gl) ───────
+
+function ScreenshotButton() {
+  const { gl, scene, camera } = useThree();
+
+  const handleScreenshot = useCallback(() => {
+    // Render one frame to ensure everything is drawn
+    gl.render(scene, camera);
+    const dataURL = gl.domElement.toDataURL('image/png');
+    // Trigger download
+    const link = document.createElement('a');
+    link.download = `钢坯堆积方案_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+    link.href = dataURL;
+    link.click();
+  }, [gl, scene, camera]);
+
+  return (
+    <button
+      className="screenshot-btn"
+      onClick={handleScreenshot}
+      title="保存截图"
+      style={{
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 20,
+        background: 'rgba(10,10,26,0.85)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 6,
+        color: 'var(--text-primary)',
+        padding: '6px 12px',
+        cursor: 'pointer',
+        fontSize: '0.8rem',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+      }}
+    >
+      📷 截图
+    </button>
+  );
+}
 
 // ── Main Scene Component ────────────────────────────────────────
 
@@ -42,7 +86,6 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
 
     if (prevKeys !== newKeys) {
       setAnimateIn(false);
-      // Small delay to reset positions before animating
       const timer = setTimeout(() => setAnimateIn(true), 50);
       prevItemsRef.current = packedItems;
       return () => clearTimeout(timer);
@@ -60,14 +103,11 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
   // Find the currently hovered item for the tooltip overlay
   const hoveredItem = useMemo(() => {
     if (!hoveredKey) return null;
-    const [billetId, instanceStr] = (() => {
-      const parts = hoveredKey.split('_');
-      const idx = parts.pop()!;
-      return [parts.join('_'), idx];
-    })();
+    const parts = hoveredKey.split('_');
+    const idx = parts.pop()!;
     return (
       packedItems.find(
-        (p) => p.billet_id === billetId && p.instance_id === parseInt(instanceStr),
+        (p) => p.billet_id === parts.join('_') && p.instance_id === parseInt(idx),
       ) ?? null
     );
   }, [hoveredKey, packedItems]);
@@ -81,7 +121,7 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
       <Canvas
         camera={{ position: camPos, fov: 45, near: 1, far: maxDim * 8 }}
         style={{ background: 'var(--bg-secondary, #1a1a2e)' }}
-        gl={{ antialias: true, alpha: false }}
+        gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true }}
       >
         {/* Lighting & Environment */}
         <SceneLighting maxDim={maxDim} centerX={centerX} centerZ={centerZ} />
@@ -131,11 +171,14 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
           minPolarAngle={0.1}
           maxPolarAngle={Math.PI / 2 - 0.05}
           mouseButtons={{
-            LEFT: 0 as const,   // Rotate
-            MIDDLE: 1 as const, // Zoom
-            RIGHT: 2 as const,  // Pan
+            LEFT: 0 as const,
+            MIDDLE: 1 as const,
+            RIGHT: 2 as const,
           }}
         />
+
+        {/* Screenshot button (must be inside Canvas) */}
+        <ScreenshotButton />
       </Canvas>
 
       {/* HTML overlay: tooltip + legend */}

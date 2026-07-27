@@ -9,12 +9,26 @@ interface PackingRequest {
 const API_BASE = '/api/v1';
 
 export async function optimizePacking(request: PackingRequest): Promise<PackingResponse> {
+  // Strip undefined fields from billets before sending
+  const cleanBillets = request.billets.map((b) => {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(b)) {
+      if (value !== undefined) {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned as BilletSpec;
+  });
+
   const response = await fetch(`${API_BASE}/pack`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      ...request,
+      billets: cleanBillets,
+    }),
   });
 
   if (!response.ok) {

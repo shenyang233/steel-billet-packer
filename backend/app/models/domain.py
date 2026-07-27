@@ -5,6 +5,14 @@ from enum import Enum
 from typing import Optional
 
 
+class BilletShape(str, Enum):
+    """Billet cross-section shape."""
+    RECTANGULAR = "rectangular"
+    CYLINDER = "cylinder"
+    PIPE = "pipe"
+    HEXAGONAL = "hexagonal"
+
+
 class RotationType(Enum):
     """py3dbp rotation types."""
     RT_WHD = 0  # width-height-depth
@@ -32,11 +40,21 @@ class OptimizeTarget(str, Enum):
 class BilletSpec:
     """Specification for a billet type."""
     id: str
-    length: float  # mm
-    width: float   # mm
-    height: float  # mm
     quantity: int
     color: str = "#B87333"  # Copper color default
+    shape: str = "rectangular"
+
+    # Rectangular dimensions (used when shape=rectangular)
+    length: float = 0.0  # mm
+    width: float = 0.0   # mm
+    height: float = 0.0  # mm
+
+    # Cylinder / Pipe dimensions
+    diameter: Optional[float] = None       # mm — outer diameter for cylinder & pipe
+    inner_diameter: Optional[float] = None # mm — inner diameter, pipe only
+
+    # Hexagonal dimensions
+    side_length: Optional[float] = None    # mm — side length of hexagon
 
 
 @dataclass
@@ -68,7 +86,7 @@ class Position:
 
 @dataclass
 class Dimensions:
-    """3D dimensions."""
+    """3D dimensions (bounding box)."""
     length: float
     width: float
     height: float
@@ -83,6 +101,12 @@ class PackedItem:
     dimensions: Dimensions
     rotation: str
     color: str
+    shape: str = "rectangular"
+
+    # Shape-specific dimensions (for frontend 3D rendering)
+    diameter: Optional[float] = None
+    inner_diameter: Optional[float] = None
+    side_length: Optional[float] = None
 
 
 @dataclass

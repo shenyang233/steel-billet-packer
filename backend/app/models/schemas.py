@@ -1,6 +1,7 @@
 """Pydantic request/response schemas for the API."""
 
-from pydantic import BaseModel, Field, field_validator
+import math
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 
 from app.config import (
@@ -9,6 +10,12 @@ from app.config import (
     MAX_TOTAL_BILLETS,
     MAX_BILLET_TYPE_QUANTITY,
 )
+
+
+# ── Shape constants ───────────────────────────────────────────────
+
+SHAPE_PATTERN = r"^(rectangular|cylinder|pipe|hexagonal)$"
+VALID_SHAPES = ("rectangular", "cylinder", "pipe", "hexagonal")
 
 
 # ── Request Schemas ──────────────────────────────────────────────
@@ -21,11 +28,24 @@ class ContainerSpecRequest(BaseModel):
 
 
 class BilletSpecRequest(BaseModel):
-    """Single billet type specification."""
+    """Single billet type specification. Supports rectangular, cylinder, pipe, and hexagonal shapes."""
     id: str = Field(..., min_length=1, max_length=50, description="钢坯型号标识")
+    shape: str = Field(default="rectangular", pattern=SHAPE_PATTERN, description="截面形状")
+
+    # Common dimension (used by all shapes)
     length: float = Field(..., gt=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯长度 (mm)")
-    width: float = Field(..., gt=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯宽度 (mm)")
-    height: float = Field(..., gt=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯高度 (mm)")
+
+    # Rectangular-specific (required when shape=rectangular, optional otherwise)
+    width: Optional[float] = Field(default=None, gt=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯宽度 (mm)")
+    height: Optional[float] = Field(default=None, gt=0, le=MAX_BILLET_DIMENSION_MM, description="钢坯高度 (mm)")
+
+    # Cylinder / Pipe specific
+    diameter: Optional[float] = Field(default=None, gt=0, le=MAX_BILLET_DIMENSION_MM, description="外径 (mm) — 圆柱/管材")
+    inner_diameter: Optional[float] = Field(default=None, ge=0, le=MAX_BILLET_DIMENSION_MM, description="内径 (mm) — 仅管材")
+
+    # Hexagonal specific
+    side_length: Optional[float] = Field(default=None, gt=0, le=MAX_BILLET_DIMENSION_MM, description="边长 (mm) — 六角形")
+
     quantity: int = Field(..., gt=0, le=MAX_BILLET_TYPE_QUANTITY, description="数量")
     color: str = Field(default="#B87333", pattern=r"^#[0-9a-fA-F]{6}$", description="显示颜色 (hex)")
 
@@ -35,6 +55,34 @@ class BilletSpecRequest(BaseModel):
         if not v.strip():
             raise ValueError("钢坯ID不能为空")
         return v.strip()
+
+    @model_validator(mode="after")
+    def validate_shape_dimensions(self) -> "BilletSpecRequest":
+        shape = self.shape
+
+        if shape == "rectangular":
+            if self.width is None:
+                raise ValueError("方形钢坯必须提供 width（宽度）")
+            if self.height is None:
+                raise ValueError("方形钢坯必须提供 height（高度）")
+
+        elif shape == "cylinder":
+            if self.diameter is None:
+                raise ValueError("圆柱形钢坯必须提供 diameter（直径）")
+
+        elif shape == "pipe":
+            if self.diameter is None:
+                raise ValueError("管材钢坯必须提供 diameter（外径）")
+            if self.inner_diameter is None:
+                raise ValueError("管材钢坯必须提供 inner_diameter（内径）")
+            if self.inner_diameter >= self.diameter:
+                raise ValueError("管材内径必须小于外径")
+
+        elif shape == "hexagonal":
+            if self.side_length is None:
+                raise ValueError("六角形钢坯必须提供 side_length（边长）")
+
+        return self
 
 
 class PackingOptionsRequest(BaseModel):
@@ -89,6 +137,10 @@ class PackedItemResponse(BaseModel):
     dimensions: DimensionsResponse
     rotation: str
     color: str
+    shape: str = "rectangular"
+    diameter: Optional[float] = None
+    inner_diameter: Optional[float] = None
+    side_length: Optional[float] = None
 
 
 class UnplacedItemResponse(BaseModel):

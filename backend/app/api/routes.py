@@ -45,8 +45,9 @@ async def optimize_packing(request: PackingRequest):
     """
     Optimize steel billet packing in a container.
 
-    Accepts container dimensions, multiple billet types with quantities,
-    and returns the optimal packing arrangement with 3D positions.
+    Accepts container dimensions, multiple billet types (rectangular, cylinder,
+    pipe, hexagonal) with quantities, and returns the optimal packing arrangement
+    with 3D positions.
     """
     start_time = time.time()
 
@@ -75,6 +76,10 @@ async def optimize_packing(request: PackingRequest):
                 ),
                 rotation=item.rotation,
                 color=item.color,
+                shape=item.shape,
+                diameter=item.diameter,
+                inner_diameter=item.inner_diameter,
+                side_length=item.side_length,
             )
             for item in result.packed_items
         ]

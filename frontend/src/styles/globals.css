@@ -242,6 +242,22 @@ input[type="checkbox"] {
   background: rgba(74, 158, 255, 0.1);
 }
 
+.add-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.add-buttons .btn-add {
+  width: auto;
+  flex: 1;
+  min-width: 80px;
+  padding: 6px 10px;
+  margin-top: 0;
+  font-size: 0.78rem;
+}
+
 /* Options */
 .option-row {
   display: flex;

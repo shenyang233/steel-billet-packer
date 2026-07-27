@@ -10,11 +10,8 @@ from app.models.domain import (
     ContainerSpec,
     PackingOptions,
     PackingResult,
-    PackingMetrics,
-    UnplacedItem,
-    TypeMetrics,
 )
-from app.utils.converters import mm3_to_m3
+from app.utils.converters import get_bounding_box
 from app.services.py3dbp_adapter import Py3dbpAdapter
 
 
@@ -28,6 +25,9 @@ def solve_packing(
 
     Uses py3dbp as the primary solver with a timeout mechanism.
     Returns the best solution found within the time limit.
+
+    Supports rectangular, cylinder, pipe, and hexagonal shapes —
+    all packed via bounding-box approximation.
 
     Args:
         container: Target container dimensions
@@ -44,11 +44,12 @@ def solve_packing(
     if total_billets == 0:
         raise ValueError("钢坯总数为0，请至少添加一种钢坯")
 
-    # Check if ANY billet can fit (pre-check)
+    # Check if ANY billet can fit (pre-check using bounding box)
     container_dims = sorted([container.length, container.width, container.height], reverse=True)
     any_can_fit = False
     for billet in billets:
-        billet_dims = sorted([billet.length, billet.width, billet.height], reverse=True)
+        bb_l, bb_w, bb_h = get_bounding_box(billet)
+        billet_dims = sorted([bb_l, bb_w, bb_h], reverse=True)
         if all(billet_dims[i] <= container_dims[i] for i in range(3)):
             any_can_fit = True
             break
@@ -68,9 +69,6 @@ def solve_packing(
                 result = future.result(timeout=options.solver_timeout_ms / 1000.0)
                 return result
             except concurrent.futures.TimeoutError:
-                # Timeout reached — return partial/best-effort result
-                # Since py3dbp doesn't support intermediate results,
-                # we return an error indicating timeout
                 raise ValueError(
                     f"打包计算超时 ({options.solver_timeout_ms / 1000:.0f}秒)。"
                     f"请减少钢坯数量或增加超时时间。"

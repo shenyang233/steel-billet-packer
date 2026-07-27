@@ -4,6 +4,7 @@ import type {
   BilletSpec,
   PackingOptions,
   PackingResultData,
+  BilletShape,
 } from '../types';
 import { optimizePacking } from '../api/client';
 
@@ -37,7 +38,7 @@ interface PackingState {
   // Actions
   setContainer: (container: Partial<ContainerSpec>) => void;
   setContainerPreset: (preset: ContainerSpec) => void;
-  addBillet: () => void;
+  addBillet: (shape?: BilletShape) => void;
   updateBillet: (index: number, billet: Partial<BilletSpec>) => void;
   removeBillet: (index: number) => void;
   setOptions: (options: Partial<PackingOptions>) => void;
@@ -45,6 +46,39 @@ interface PackingState {
   clearResult: () => void;
   setSelectedBilletKey: (key: string | null) => void;
   setHoveredBilletKey: (key: string | null) => void;
+}
+
+function createDefaultBillet(shape: BilletShape, index: number, color: string): BilletSpec {
+  const base: BilletSpec = {
+    id: `方坯-${150 + index * 10}`,
+    shape,
+    length: 6000,
+    quantity: 50,
+    color,
+  };
+
+  switch (shape) {
+    case 'rectangular':
+      base.id = `方坯-${150 + index * 10}`;
+      base.width = 150;
+      base.height = 150;
+      break;
+    case 'cylinder':
+      base.id = `圆坯-${100 + index * 10}`;
+      base.diameter = 150;
+      break;
+    case 'pipe':
+      base.id = `管坯-${100 + index * 10}`;
+      base.diameter = 150;
+      base.innerDiameter = 100;
+      break;
+    case 'hexagonal':
+      base.id = `六角坯-${50 + index * 10}`;
+      base.sideLength = 80;
+      break;
+  }
+
+  return base;
 }
 
 export const usePackingStore = create<PackingState>((set, get) => ({
@@ -57,6 +91,7 @@ export const usePackingStore = create<PackingState>((set, get) => ({
   billets: [
     {
       id: '方坯-150',
+      shape: 'rectangular' as BilletShape,
       length: 6000,
       width: 150,
       height: 150,
@@ -92,20 +127,14 @@ export const usePackingStore = create<PackingState>((set, get) => ({
   setContainerPreset: (preset) =>
     set({ container: { ...preset } }),
 
-  addBillet: () =>
+  addBillet: (shape?: BilletShape) =>
     set((state) => {
       const idx = state.colorIndex % DEFAULT_COLORS.length;
+      const targetShape = shape || 'rectangular';
       return {
         billets: [
           ...state.billets,
-          {
-            id: `方坯-${150 + state.billets.length * 10}`,
-            length: 6000,
-            width: 150,
-            height: 150,
-            quantity: 50,
-            color: DEFAULT_COLORS[idx],
-          },
+          createDefaultBillet(targetShape, state.billets.length, DEFAULT_COLORS[idx]),
         ],
         colorIndex: state.colorIndex + 1,
       };

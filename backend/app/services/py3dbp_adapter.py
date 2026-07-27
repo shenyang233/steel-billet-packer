@@ -6,8 +6,9 @@ Enhances the base py3dbp algorithm with:
 - Gravity stability checking
 - Adjustable clearance between items
 - Layer grouping for visualization
+- Shape-aware bounding box computation (cylinder, pipe, hexagonal)
 """
-
+import math
 from decimal import Decimal
 from typing import Optional
 
@@ -28,7 +29,7 @@ from app.models.domain import (
     TypeMetrics,
     RotationAxes,
 )
-from app.utils.converters import mm3_to_m3
+from app.utils.converters import mm3_to_m3, get_bounding_box, compute_billet_volume
 
 
 # ── Rotation type mapping ────────────────────────────────────────
@@ -43,19 +44,7 @@ ROTATION_NAMES = {
 }
 
 # Rotations that keep the item flat (height dimension stays vertical)
-# In py3dbp: width=x, height=y(vertical), depth=z
-# "Flat" means the original height dimension stays as the vertical (y) axis
-# RT_WHD (0): w=x, h=y, d=z → height stays vertical ✓
-# RT_WDH (5): w=x, d=y, h=z → height is now depth ✗
-# Actually for "vertical_only", we want the billet to keep its "height" as the stacking axis
-# RT_WHD (0): original width→x, height→y, depth→z ✓
-# RT_HWD (1): original height→x, width→y, depth→z ✗
-# Let me define vertical_only as rotations where the original height remains as y-axis
 VERTICAL_ONLY_ROTATIONS = [0]  # Only RT_WHD keeps original height as vertical
-# Actually, let's reconsider: for steel billets, height is usually the smallest dimension
-# "vertical_only" means the billet stays flat — height is always the vertical (stacking) axis
-# RT_WHD (0): items stacked along y-axis using item.height ✓
-# That means the item's height is always the vertical dimension
 
 
 class Py3dbpAdapter:
@@ -69,6 +58,10 @@ class Py3dbpAdapter:
     ) -> PackingResult:
         """
         Run the 3D bin packing algorithm.
+
+        All shapes are packed using their rectangular bounding boxes
+        (py3dbp only supports cuboid items). Actual volume metrics use
+        the real geometric volume formula for each shape.
 
         Args:
             container: Target container dimensions
@@ -92,32 +85,29 @@ class Py3dbpAdapter:
         packer.add_bin(bin_obj)
 
         # Expand billets: each individual billet becomes one Item
-        # We also track metadata for reconstruction
-        item_meta = {}  # item_name -> {billet_id, instance_id, color, original_dims}
+        # We track metadata for reconstruction
+        item_meta = {}  # item_name -> {billet_id, instance_id, color, shape, dims, ...}
 
         for billet in billets:
-            original_l = billet.length
-            original_w = billet.width
-            original_h = billet.height
+            # Get the bounding box dimensions for packing
+            bb_l, bb_w, bb_h = get_bounding_box(billet)
 
-            # Apply clearance to each dimension
-            eff_l = original_l + clearance
-            eff_w = original_w + clearance
-            eff_h = original_h + clearance
+            # Apply clearance to each bounding box dimension
+            eff_l = bb_l + clearance
+            eff_w = bb_w + clearance
+            eff_h = bb_h + clearance
 
             # Skip if even one billet can't fit in any orientation
             min_dim = min(eff_l, eff_w, eff_h)
             container_min_dim = min(container.length, container.width, container.height)
             if min_dim > container_min_dim:
-                # This billet type is too large for the container in at least one dimension
-                # Still add them — py3dbp will try all orientations
-                pass
+                pass  # Still add them — py3dbp will try all orientations
 
             for i in range(billet.quantity):
                 item_name = f"{billet.id}_{i}"
 
                 # py3dbp: (name, width, height, depth, weight)
-                # We map: length→depth, width→width, height→height
+                # Map: length→depth, width→width, height→height
                 item = py3dbp.Item(
                     name=item_name,
                     width=eff_w,
@@ -130,16 +120,22 @@ class Py3dbpAdapter:
                 if options.rotation_axes == RotationAxes.NONE:
                     item.rotation_type = 0  # Fixed orientation
                 elif options.rotation_axes == RotationAxes.VERTICAL_ONLY:
-                    item.rotation_type = 0  # Start with default, constrain later
+                    item.rotation_type = 0  # Start with default
 
                 packer.add_item(item)
                 item_meta[item_name] = {
                     "billet_id": billet.id,
                     "instance_id": i,
                     "color": billet.color,
-                    "original_length": original_l,
-                    "original_width": original_w,
-                    "original_height": original_h,
+                    "shape": billet.shape,
+                    # Original shape-specific dimensions
+                    "original_length": billet.length,
+                    "original_width": billet.width or 0.0,
+                    "original_height": billet.height or 0.0,
+                    "diameter": billet.diameter,
+                    "inner_diameter": billet.inner_diameter,
+                    "side_length": billet.side_length,
+                    # Bounding box dimensions (effective, with clearance)
                     "eff_length": eff_l,
                     "eff_width": eff_w,
                     "eff_height": eff_h,
@@ -168,7 +164,7 @@ class Py3dbpAdapter:
             pos = item.position
 
             # dims from py3dbp: (width, height, depth)
-            # Map back: length=depth, width=width, height=height
+            # Map back (with clearance subtracted)
             placed_w = float(dims[0]) - clearance
             placed_h = float(dims[1]) - clearance
             placed_l = float(dims[2]) - clearance
@@ -188,6 +184,10 @@ class Py3dbpAdapter:
                 ),
                 rotation=ROTATION_NAMES.get(rot_type, f"RT_{rot_type}"),
                 color=meta["color"],
+                shape=meta.get("shape", "rectangular"),
+                diameter=meta.get("diameter"),
+                inner_diameter=meta.get("inner_diameter"),
+                side_length=meta.get("side_length"),
             ))
 
         # Process unfitted items
@@ -209,10 +209,12 @@ class Py3dbpAdapter:
         container_vol_mm3 = container.length * container.width * container.height
         container_vol_m3 = mm3_to_m3(container_vol_mm3)
 
-        placed_vol_mm3 = sum(
-            item.dimensions.length * item.dimensions.width * item.dimensions.height
-            for item in packed_items
-        )
+        # Use REAL geometric volume for placed volume (not bounding box)
+        placed_vol_mm3 = 0.0
+        for item in packed_items:
+            # Build a BilletSpec-like shape to compute real volume from the packed item
+            placed_vol_mm3 += _item_volume_from_packed(item)
+
         placed_vol_m3 = mm3_to_m3(placed_vol_mm3)
 
         utilization = (placed_vol_m3 / container_vol_m3 * 100) if container_vol_m3 > 0 else 0.0
@@ -224,7 +226,7 @@ class Py3dbpAdapter:
             placed = sum(1 for p in packed_items if p.billet_id == billet.id)
             unplaced = billet.quantity - placed
             type_placed_vol = sum(
-                p.dimensions.length * p.dimensions.width * p.dimensions.height
+                _item_volume_from_packed(p)
                 for p in packed_items if p.billet_id == billet.id
             )
             by_type[billet.id] = TypeMetrics(
@@ -301,3 +303,27 @@ class Py3dbpAdapter:
         ))
 
         return layers
+
+
+def _item_volume_from_packed(item: PackedItem) -> float:
+    """Compute the real geometric volume of a packed item based on its shape."""
+    shape = item.shape
+
+    if shape == "rectangular":
+        return item.dimensions.length * item.dimensions.width * item.dimensions.height
+    elif shape == "cylinder":
+        d = item.diameter or 0.0
+        r = d / 2.0
+        return item.dimensions.length * math.pi * r * r
+    elif shape == "pipe":
+        od = item.diameter or 0.0
+        id_ = item.inner_diameter or 0.0
+        outer_r = od / 2.0
+        inner_r = id_ / 2.0
+        return item.dimensions.length * math.pi * (outer_r * outer_r - inner_r * inner_r)
+    elif shape == "hexagonal":
+        s = item.side_length or 0.0
+        area = (3.0 * math.sqrt(3) / 2.0) * s * s
+        return item.dimensions.length * area
+    else:
+        return item.dimensions.length * item.dimensions.width * item.dimensions.height

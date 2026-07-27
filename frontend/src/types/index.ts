@@ -1,5 +1,7 @@
 /* TypeScript interfaces matching the backend API */
 
+export type BilletShape = 'rectangular' | 'cylinder' | 'pipe' | 'hexagonal';
+
 export interface ContainerSpec {
   length: number;
   width: number;
@@ -8,9 +10,13 @@ export interface ContainerSpec {
 
 export interface BilletSpec {
   id: string;
+  shape: BilletShape;
   length: number;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
+  diameter?: number;
+  innerDiameter?: number;
+  sideLength?: number;
   quantity: number;
   color: string;
 }
@@ -43,6 +49,10 @@ export interface PackedItem {
   dimensions: Dimensions;
   rotation: string;
   color: string;
+  shape: BilletShape;
+  diameter?: number;
+  inner_diameter?: number;
+  side_length?: number;
 }
 
 export interface UnplacedItem {

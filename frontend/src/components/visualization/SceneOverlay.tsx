@@ -6,6 +6,13 @@ interface SceneOverlayProps {
   packedItems: PackedItem[];
 }
 
+const SHAPE_LABELS: Record<string, string> = {
+  rectangular: '方形',
+  cylinder: '圆柱',
+  pipe: '管材',
+  hexagonal: '六角',
+};
+
 export const SceneOverlay: React.FC<SceneOverlayProps> = ({
   hoveredItem,
   packedItems,
@@ -24,6 +31,21 @@ export const SceneOverlay: React.FC<SceneOverlayProps> = ({
     return Array.from(map.entries());
   })();
 
+  const formatDimensions = (item: PackedItem): string => {
+    const shape = item.shape || 'rectangular';
+    switch (shape) {
+      case 'cylinder':
+        return `∅${item.diameter?.toFixed(1) || '?'} × ${item.dimensions.length.toFixed(0)} mm`;
+      case 'pipe':
+        return `∅${item.diameter?.toFixed(1) || '?'} / ∅${item.inner_diameter?.toFixed(1) || '?'} × ${item.dimensions.length.toFixed(0)} mm`;
+      case 'hexagonal':
+        return `S=${item.side_length?.toFixed(1) || '?'} × ${item.dimensions.length.toFixed(0)} mm`;
+      case 'rectangular':
+      default:
+        return `${item.dimensions.length.toFixed(0)} × ${item.dimensions.width.toFixed(0)} × ${item.dimensions.height.toFixed(0)} mm`;
+    }
+  };
+
   return (
     <>
       {/* Tooltip */}
@@ -35,14 +57,15 @@ export const SceneOverlay: React.FC<SceneOverlayProps> = ({
               style={{ background: hoveredItem.color }}
             />
             <strong>{hoveredItem.billet_id}</strong>
+            <span className="tooltip-shape">{SHAPE_LABELS[hoveredItem.shape || 'rectangular'] || hoveredItem.shape}</span>
             <span className="tooltip-instance">#{hoveredItem.instance_id}</span>
           </div>
           <div className="tooltip-body">
             <div className="tooltip-row">
-              <span className="tooltip-label">尺寸</span>
-              <span className="tooltip-value">
-                {hoveredItem.dimensions.length} × {hoveredItem.dimensions.width} × {hoveredItem.dimensions.height} mm
+              <span className="tooltip-label">
+                {hoveredItem.shape === 'cylinder' || hoveredItem.shape === 'pipe' ? '规格' : '尺寸'}
               </span>
+              <span className="tooltip-value">{formatDimensions(hoveredItem)}</span>
             </div>
             <div className="tooltip-row">
               <span className="tooltip-label">位置</span>

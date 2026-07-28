@@ -17,7 +17,7 @@ export async function optimizePacking(request: PackingRequest): Promise<PackingR
         cleaned[key] = value;
       }
     }
-    return cleaned as BilletSpec;
+    return cleaned as unknown as BilletSpec;
   });
 
   const response = await fetch(`${API_BASE}/pack`, {

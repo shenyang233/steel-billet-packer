@@ -15,9 +15,10 @@ const easeOutBack = (t: number): number => {
 // ── Coordinate mapping ──────────────────────────────────────────
 // py3dbp: position=(x=width, y=height, z=depth/length)
 // Three.js: X=right, Y=up, Z=forward
-// Bounding box: (width, height, length) → Three.js (x, y, z)
 // CylinderGeometry defaults along Y axis; billets run along Z (length).
-// We rotate geometries by [π/2, 0, 0] to align the cylinder axis with Z.
+// Rotate by [π/2, 0, 0] to align the cylinder axis with Z.
+
+const CYLINDER_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0];
 
 // ── Shape-specific geometry components ──────────────────────────
 
@@ -38,14 +39,10 @@ const RectangularGeometry: React.FC<ShapeGeometryProps> = ({
   materialOpacity,
 }) => {
   const { dimensions } = item;
-  const w = dimensions.width;   // Three.js x
-  const h = dimensions.height;  // Three.js y
-  const d = dimensions.length;  // Three.js z
-
   return (
     <group>
       <mesh>
-        <boxGeometry args={[w, h, d]} />
+        <boxGeometry args={[dimensions.width, dimensions.height, dimensions.length]} />
         <meshStandardMaterial
           color={baseColor}
           emissive={emissiveColor}
@@ -58,15 +55,11 @@ const RectangularGeometry: React.FC<ShapeGeometryProps> = ({
         />
       </mesh>
       <Edges scale={1} threshold={15} color={baseColor.clone().multiplyScalar(0.35)}>
-        <boxGeometry args={[w, h, d]} />
+        <boxGeometry args={[dimensions.width, dimensions.height, dimensions.length]} />
       </Edges>
     </group>
   );
 };
-
-// Cylinder: length runs along Z axis. CylinderGeometry defaults along Y.
-// Rotate +π/2 around X to map Y→Z.
-const CYLINDER_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0];
 
 const CylinderGeometryView: React.FC<ShapeGeometryProps> = ({
   item,
@@ -77,8 +70,8 @@ const CylinderGeometryView: React.FC<ShapeGeometryProps> = ({
 }) => {
   const { dimensions } = item;
   const d = item.diameter || Math.min(dimensions.width, dimensions.height);
-  const length = dimensions.length;
   const radius = d / 2;
+  const length = dimensions.length;
 
   return (
     <group rotation={CYLINDER_ROTATION}>
@@ -95,19 +88,13 @@ const CylinderGeometryView: React.FC<ShapeGeometryProps> = ({
           depthWrite={emissiveIntensity === 0}
         />
       </mesh>
-      {/* End cap outlines */}
       <Edges scale={1} threshold={15} color={baseColor.clone().multiplyScalar(0.35)}>
         <cylinderGeometry args={[radius, radius, length, 48, 1, true]} />
       </Edges>
-      {/* Circle rings at each end */}
       {[length / 2, -length / 2].map((yOff, i) => (
         <mesh key={i} position={[0, yOff, 0]}>
           <ringGeometry args={[radius * 0.96, radius, 64]} />
-          <meshBasicMaterial
-            color={baseColor.clone().multiplyScalar(0.4)}
-            side={THREE.DoubleSide}
-            depthTest={false}
-          />
+          <meshBasicMaterial color={baseColor.clone().multiplyScalar(0.4)} side={THREE.DoubleSide} depthTest={false} />
         </mesh>
       ))}
     </group>
@@ -124,60 +111,30 @@ const PipeGeometryView: React.FC<ShapeGeometryProps> = ({
   const { dimensions } = item;
   const od = item.diameter || Math.min(dimensions.width, dimensions.height);
   const id = item.inner_diameter || od * 0.6;
-  const length = dimensions.length;
   const outerR = od / 2;
   const innerR = id / 2;
+  const length = dimensions.length;
 
   return (
     <group rotation={CYLINDER_ROTATION}>
-      {/* Outer wall */}
       <mesh>
         <cylinderGeometry args={[outerR, outerR, length, 48, 1, true]} />
-        <meshStandardMaterial
-          color={baseColor}
-          emissive={emissiveColor}
-          emissiveIntensity={emissiveIntensity}
-          metalness={0.7}
-          roughness={0.3}
-          transparent
-          opacity={materialOpacity}
-          depthWrite={emissiveIntensity === 0}
-          side={THREE.FrontSide}
-        />
+        <meshStandardMaterial color={baseColor} emissive={emissiveColor} emissiveIntensity={emissiveIntensity} metalness={0.7} roughness={0.3} transparent opacity={materialOpacity} depthWrite={emissiveIntensity === 0} side={THREE.FrontSide} />
       </mesh>
-      {/* Inner wall */}
       <mesh>
         <cylinderGeometry args={[innerR, innerR, length, 48, 1, true]} />
-        <meshStandardMaterial
-          color={baseColor.clone().multiplyScalar(0.7)}
-          metalness={0.5}
-          roughness={0.6}
-          side={THREE.BackSide}
-        />
+        <meshStandardMaterial color={baseColor.clone().multiplyScalar(0.7)} metalness={0.5} roughness={0.6} side={THREE.BackSide} />
       </mesh>
-      {/* Ring faces at each end */}
       {[length / 2, -length / 2].map((yOff, i) => (
         <mesh key={i} position={[0, yOff, 0]}>
           <ringGeometry args={[innerR, outerR, 64]} />
-          <meshStandardMaterial
-            color={baseColor}
-            emissive={emissiveColor}
-            emissiveIntensity={emissiveIntensity * 0.5}
-            metalness={0.7}
-            roughness={0.3}
-            side={THREE.DoubleSide}
-          />
+          <meshStandardMaterial color={baseColor} emissive={emissiveColor} emissiveIntensity={emissiveIntensity * 0.5} metalness={0.7} roughness={0.3} side={THREE.DoubleSide} />
         </mesh>
       ))}
-      {/* Outer edge rings */}
       {[length / 2, -length / 2].map((yOff, i) => (
-        <mesh key={`oring-${i}`} position={[0, yOff, 0]}>
+        <mesh key={`o-${i}`} position={[0, yOff, 0]}>
           <ringGeometry args={[outerR * 0.96, outerR, 64]} />
-          <meshBasicMaterial
-            color={baseColor.clone().multiplyScalar(0.35)}
-            side={THREE.DoubleSide}
-            depthTest={false}
-          />
+          <meshBasicMaterial color={baseColor.clone().multiplyScalar(0.35)} side={THREE.DoubleSide} depthTest={false} />
         </mesh>
       ))}
     </group>
@@ -193,34 +150,22 @@ const HexagonalGeometry: React.FC<ShapeGeometryProps> = ({
 }) => {
   const { dimensions } = item;
   const s = item.side_length || dimensions.width / 2;
-  const length = dimensions.length;
-  // Regular hexagon: circumradius = side_length
   const circumR = s;
 
   return (
     <group rotation={CYLINDER_ROTATION}>
       <mesh>
-        {/* 6 radial segments = hexagonal prism */}
-        <cylinderGeometry args={[circumR, circumR, length, 6]} />
-        <meshStandardMaterial
-          color={baseColor}
-          emissive={emissiveColor}
-          emissiveIntensity={emissiveIntensity}
-          metalness={0.65}
-          roughness={0.35}
-          transparent
-          opacity={materialOpacity}
-          depthWrite={emissiveIntensity === 0}
-        />
+        <cylinderGeometry args={[circumR, circumR, dimensions.length, 6]} />
+        <meshStandardMaterial color={baseColor} emissive={emissiveColor} emissiveIntensity={emissiveIntensity} metalness={0.65} roughness={0.35} transparent opacity={materialOpacity} depthWrite={emissiveIntensity === 0} />
       </mesh>
       <Edges scale={1} threshold={15} color={baseColor.clone().multiplyScalar(0.35)}>
-        <cylinderGeometry args={[circumR, circumR, length, 6]} />
+        <cylinderGeometry args={[circumR, circumR, dimensions.length, 6]} />
       </Edges>
     </group>
   );
 };
 
-// ── Main BilletMesh component ────────────────────────────────────
+// ── Animated Billet Wrapper ─────────────────────────────────────
 
 interface BilletMeshProps {
   item: PackedItem;
@@ -244,43 +189,57 @@ export const BilletMesh: React.FC<BilletMeshProps> = ({
   maxDim,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const animProgress = useRef(0);
   const [hoveredLocal, setHoveredLocal] = useState(false);
+  const animStartTime = useRef<number | null>(null);
+  const initialOffsetY = useRef(0);
 
   useCursor(hoveredLocal || isHovered);
 
   const { position, dimensions } = item;
   const shape = item.shape || 'rectangular';
 
-  // Bounding box center in Three.js world space
-  const cx = position.x + dimensions.width / 2;   // x center
-  const cy = position.y + dimensions.height / 2;  // y center
-  const cz = position.z + dimensions.length / 2;  // z center
+  // Target center position in world space
+  const targetX = position.x + dimensions.width / 2;
+  const targetY = position.y + dimensions.height / 2;
+  const targetZ = position.z + dimensions.length / 2;
 
-  // Drop-in animation: reset position when not animating, animate when active
-  const startY = animateIn ? cy + maxDim * 0.3 + index * 20 : cy;
+  // On first mount or re-optimize, record the initial animation offset
   const staggerDelay = index * 0.04;
 
   useEffect(() => {
-    animProgress.current = 0;
-    // Reset position immediately when animation toggles off
-    if (!animateIn && groupRef.current) {
-      groupRef.current.position.y = cy;
-    }
-  }, [animateIn, cy]);
-
-  useFrame((_, delta) => {
-    if (!animateIn || !groupRef.current) return;
-    if (animProgress.current < 1) {
-      const adjustedProgress = Math.max(0, animProgress.current - staggerDelay) / (1 - staggerDelay);
-      if (adjustedProgress > 0) {
-        const eased = easeOutBack(Math.min(1, adjustedProgress));
-        groupRef.current.position.y = startY + (cy - startY) * eased;
-      }
-      animProgress.current += delta * 2.5;
+    animStartTime.current = null;
+    if (animateIn) {
+      initialOffsetY.current = maxDim * 0.3 + index * 20;
     } else {
-      // Snap to final position once animation completes
-      groupRef.current.position.set(groupRef.current.position.x, cy, groupRef.current.position.z);
+      initialOffsetY.current = 0;
+    }
+  }, [animateIn, maxDim, index]);
+
+  useFrame((state) => {
+    if (!groupRef.current) return;
+
+    if (!animateIn) {
+      groupRef.current.position.set(targetX, targetY, targetZ);
+      return;
+    }
+
+    // Animation timing
+    if (animStartTime.current === null) {
+      animStartTime.current = state.clock.getElapsedTime();
+    }
+
+    const elapsed = state.clock.getElapsedTime() - animStartTime.current;
+    const adjustedTime = Math.max(0, elapsed - staggerDelay);
+    const duration = 0.5; // seconds base duration
+
+    if (adjustedTime >= duration) {
+      // Animation complete — snap to target
+      groupRef.current.position.set(targetX, targetY, targetZ);
+    } else {
+      const t = adjustedTime / duration;
+      const eased = easeOutBack(t);
+      const offsetY = initialOffsetY.current * (1 - eased);
+      groupRef.current.position.set(targetX, targetY + offsetY, targetZ);
     }
   });
 
@@ -305,7 +264,7 @@ export const BilletMesh: React.FC<BilletMeshProps> = ({
   return (
     <group
       ref={groupRef}
-      position={[cx, startY, cz]}
+      position={[targetX, animateIn ? targetY + initialOffsetY.current : targetY, targetZ]}
       onClick={(e) => {
         e.stopPropagation();
         onClick();

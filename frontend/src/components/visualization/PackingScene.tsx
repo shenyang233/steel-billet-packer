@@ -43,11 +43,17 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
       .join(',');
 
     if (prevKeys !== newKeys) {
+      // Reset: first set animateIn=false so BilletMesh resets to final positions
       setAnimateIn(false);
+
+      // Save new items immediately
       prevItemsRef.current = packedItems;
-      // Trigger animation on next frame after a brief pause
+
+      // Wait 2 frames then start animation — ensures old meshes are gone
       requestAnimationFrame(() => {
-        setTimeout(() => setAnimateIn(true), 80);
+        requestAnimationFrame(() => {
+          setAnimateIn(true);
+        });
       });
     }
   }, [packedItems]);

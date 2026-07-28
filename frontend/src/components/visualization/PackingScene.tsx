@@ -1,55 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import type { PackedItem, ContainerSpec } from '../../types';
 import { ContainerMesh } from './ContainerMesh';
 import { BilletMesh } from './BilletMesh';
 import { SceneLighting } from './SceneLighting';
 import { SceneOverlay } from './SceneOverlay';
-
-// ── Screenshot button (inside Canvas context to access gl) ───────
-
-function ScreenshotButton() {
-  const { gl, scene, camera } = useThree();
-
-  const handleScreenshot = useCallback(() => {
-    // Render one frame to ensure everything is drawn
-    gl.render(scene, camera);
-    const dataURL = gl.domElement.toDataURL('image/png');
-    // Trigger download
-    const link = document.createElement('a');
-    link.download = `钢坯堆积方案_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
-    link.href = dataURL;
-    link.click();
-  }, [gl, scene, camera]);
-
-  return (
-    <button
-      className="screenshot-btn"
-      onClick={handleScreenshot}
-      title="保存截图"
-      style={{
-        position: 'absolute',
-        top: 12,
-        left: 12,
-        zIndex: 20,
-        background: 'rgba(10,10,26,0.85)',
-        border: '1px solid var(--border-color)',
-        borderRadius: 6,
-        color: 'var(--text-primary)',
-        padding: '6px 12px',
-        cursor: 'pointer',
-        fontSize: '0.8rem',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-      }}
-    >
-      📷 截图
-    </button>
-  );
-}
 
 // ── Main Scene Component ────────────────────────────────────────
 
@@ -72,6 +28,7 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
 }) => {
   const [animateIn, setAnimateIn] = useState(false);
   const prevItemsRef = useRef<PackedItem[]>([]);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   // Trigger animation whenever packedItems change (new packing result)
   useEffect(() => {
@@ -112,12 +69,25 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
     );
   }, [hoveredKey, packedItems]);
 
+  // Screenshot handler (accesses the canvas DOM element via ref, NOT inside Canvas)
+  const handleScreenshot = useCallback(() => {
+    const container = canvasContainerRef.current;
+    if (!container) return;
+    const canvas = container.querySelector('canvas');
+    if (!canvas) return;
+    const dataURL = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `钢坯堆积方案_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+    link.href = dataURL;
+    link.click();
+  }, []);
+
   const centerX = container.width / 2;
   const centerZ = container.length / 2;
   const centerY = container.height / 2;
 
   return (
-    <div className="scene-container">
+    <div className="scene-container" ref={canvasContainerRef}>
       <Canvas
         camera={{ position: camPos, fov: 45, near: 1, far: maxDim * 8 }}
         style={{ background: 'var(--bg-secondary, #1a1a2e)' }}
@@ -176,10 +146,16 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
             RIGHT: 2 as const,
           }}
         />
-
-        {/* Screenshot button (must be inside Canvas) */}
-        <ScreenshotButton />
       </Canvas>
+
+      {/* Screenshot button — OUTSIDE Canvas to avoid React Three Fiber crash */}
+      <button
+        className="screenshot-btn"
+        onClick={handleScreenshot}
+        title="保存截图"
+      >
+        📷 截图
+      </button>
 
       {/* HTML overlay: tooltip + legend */}
       <SceneOverlay hoveredItem={hoveredItem} packedItems={packedItems} />

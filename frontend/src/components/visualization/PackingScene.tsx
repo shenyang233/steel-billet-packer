@@ -30,78 +30,6 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
   const prevItemsRef = useRef<PackedItem[]>([]);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
-  // ── Recording state ──────────────────────────────────────────
-
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-
-  const getCanvas = useCallback((): HTMLCanvasElement | null => {
-    return canvasContainerRef.current?.querySelector('canvas') ?? null;
-  }, []);
-
-  const handleToggleRecord = useCallback(() => {
-    if (isRecording) {
-      // Stop recording
-      mediaRecorderRef.current?.stop();
-      return;
-    }
-
-    const canvas = getCanvas();
-    if (!canvas) return;
-
-    // Try VP9 first, fall back to VP8, then browser default
-    let mimeType = 'video/webm;codecs=vp9';
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-      mimeType = 'video/webm;codecs=vp8';
-    }
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-      mimeType = 'video/webm';
-    }
-
-    const stream = canvas.captureStream(30); // 30 FPS
-    chunksRef.current = [];
-
-    try {
-      const recorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
-
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `钢坯堆积录屏_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
-        link.href = url;
-        link.click();
-        URL.revokeObjectURL(url);
-        chunksRef.current = [];
-        mediaRecorderRef.current = null;
-      };
-
-      // Record in 1-second chunks so we can collect them on stop
-      recorder.start(1000);
-      setIsRecording(true);
-    } catch {
-      // MediaRecorder not supported
-      console.warn('MediaRecorder not available');
-    }
-  }, [isRecording, getCanvas]);
-
-  // Cleanup recorder on unmount
-  useEffect(() => {
-    return () => {
-      if (mediaRecorderRef.current?.state === 'recording') {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, []);
-
   // ── Animation trigger ────────────────────────────────────────
 
   useEffect(() => {
@@ -141,14 +69,14 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
   }, [hoveredKey, packedItems]);
 
   const handleScreenshot = useCallback(() => {
-    const canvas = getCanvas();
+    const canvas = canvasContainerRef.current?.querySelector('canvas');
     if (!canvas) return;
     const dataURL = canvas.toDataURL('image/png');
     const link = document.createElement('a');
     link.download = `钢坯堆积方案_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
     link.href = dataURL;
     link.click();
-  }, [getCanvas]);
+  }, []);
 
   const centerX = container.width / 2;
   const centerZ = container.length / 2;
@@ -211,26 +139,11 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
         />
       </Canvas>
 
-      {/* Toolbar: screenshot + record buttons */}
+      {/* Toolbar: screenshot button for 3D scene */}
       <div className="scene-toolbar">
         <button className="scene-action-btn" onClick={handleScreenshot} title="保存截图">
           📷 截图
         </button>
-        <button
-          className={`scene-action-btn ${isRecording ? 'recording' : ''}`}
-          onClick={handleToggleRecord}
-          title={isRecording ? '停止录制' : '录制视频'}
-        >
-          {isRecording ? (
-            <>
-              <span className="record-dot" />
-              停止
-            </>
-          ) : (
-            '🎥 录制'
-          )}
-        </button>
-        {isRecording && <span className="record-time">REC</span>}
       </div>
 
       <SceneOverlay hoveredItem={hoveredItem} packedItems={packedItems} />

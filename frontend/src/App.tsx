@@ -7,6 +7,7 @@ import { OptionsPanel } from './components/forms/OptionsPanel';
 import { PackingScene } from './components/visualization/PackingScene';
 import { ResultsPanel } from './components/results/ResultsPanel';
 import { usePackingStore } from './store/usePackingStore';
+import { ScreenRecorder } from './components/ScreenRecorder';
 import './styles/globals.css';
 
 const App: React.FC = () => {
@@ -60,6 +61,9 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
+      {/* Global screen recorder — top-left, records entire page */}
+      <ScreenRecorder />
+
       <AppHeader />
       <AppLayout>
         <div className="left-panel">

@@ -348,64 +348,76 @@ input[type="checkbox"] {
   display: block;
 }
 
-/* ── Scene toolbar (screenshot + record buttons) ────────────── */
+/* ── Screen Recorder (top-left of entire page) ────────────────── */
 
-.scene-toolbar {
-  position: absolute;
+.screen-recorder {
+  position: fixed;
   top: 12px;
   left: 12px;
-  z-index: 20;
+  z-index: 9999;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
 }
 
-.scene-action-btn {
-  background: rgba(10, 10, 26, 0.85);
+.recorder-btn {
+  background: rgba(10, 10, 26, 0.9);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-primary);
-  padding: 6px 12px;
+  padding: 7px 14px;
   cursor: pointer;
-  font-size: 0.8rem;
-  backdrop-filter: blur(8px);
+  font-size: 0.85rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, transform 0.15s;
   white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
-.scene-action-btn:hover {
-  background: rgba(74, 158, 255, 0.15);
+.recorder-btn:hover {
+  background: rgba(74, 158, 255, 0.18);
   border-color: var(--accent);
+  transform: translateY(-1px);
 }
 
-/* Recording state */
-.scene-action-btn.recording {
+.recorder-btn.recording {
   border-color: #f44336;
   color: #f44336;
+  background: rgba(244, 67, 54, 0.12);
+}
+
+.recorder-btn.recording:hover {
+  background: rgba(244, 67, 54, 0.2);
 }
 
 .record-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: #f44336;
   animation: record-pulse 1s ease-in-out infinite;
 }
 
 @keyframes record-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.3; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.3; transform: scale(0.7); }
 }
 
-.record-time {
-  font-size: 0.72rem;
+.recorder-badge {
+  font-size: 0.7rem;
   color: #f44336;
   font-weight: 700;
+  letter-spacing: 0.08em;
   animation: record-pulse 1s ease-in-out infinite;
-  letter-spacing: 0.05em;
+}
+
+.recorder-error {
+  font-size: 1rem;
+  cursor: help;
 }
 
 /* Tooltip */

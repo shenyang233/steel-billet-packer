@@ -44,9 +44,11 @@ export const PackingScene: React.FC<PackingSceneProps> = ({
 
     if (prevKeys !== newKeys) {
       setAnimateIn(false);
-      const timer = setTimeout(() => setAnimateIn(true), 50);
       prevItemsRef.current = packedItems;
-      return () => clearTimeout(timer);
+      // Trigger animation on next frame after a brief pause
+      requestAnimationFrame(() => {
+        setTimeout(() => setAnimateIn(true), 80);
+      });
     }
   }, [packedItems]);
 

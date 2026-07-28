@@ -257,15 +257,17 @@ export const BilletMesh: React.FC<BilletMeshProps> = ({
   const cy = position.y + dimensions.height / 2;  // y center
   const cz = position.z + dimensions.length / 2;  // z center
 
-  // Drop-in animation
+  // Drop-in animation: reset position when not animating, animate when active
   const startY = animateIn ? cy + maxDim * 0.3 + index * 20 : cy;
   const staggerDelay = index * 0.04;
 
   useEffect(() => {
-    if (animateIn) {
-      animProgress.current = 0;
+    animProgress.current = 0;
+    // Reset position immediately when animation toggles off
+    if (!animateIn && groupRef.current) {
+      groupRef.current.position.y = cy;
     }
-  }, [animateIn]);
+  }, [animateIn, cy]);
 
   useFrame((_, delta) => {
     if (!animateIn || !groupRef.current) return;
@@ -276,8 +278,9 @@ export const BilletMesh: React.FC<BilletMeshProps> = ({
         groupRef.current.position.y = startY + (cy - startY) * eased;
       }
       animProgress.current += delta * 2.5;
-    } else if (groupRef.current.position.y !== cy) {
-      groupRef.current.position.y = cy;
+    } else {
+      // Snap to final position once animation completes
+      groupRef.current.position.set(groupRef.current.position.x, cy, groupRef.current.position.z);
     }
   });
 
